@@ -6,9 +6,24 @@
 pip install revbranch
 ```
 
-## Notes
+## Development
 
-I'm trying to use `poetry`.
+Install [poetry](https://python-poetry.org/). Then:
+
+```
+git clone https://github.com/noamraph/revbranch.git
+cd revbranch
+poetry install 
+```
+
+
+## Running tests
+
+```
+poetry run pytest
+```
+
+## Notes
 
 I like to have the virtualenv inside the directory, and this makes it work:
 

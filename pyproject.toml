@@ -8,6 +8,10 @@ authors = ["Noam Yorav-Raphael <noamraph@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.7"
+dulwich = "^0.20.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.4"
+
+[tool.poetry.scripts]
+revbranch = 'revbranch.revbranch:main'

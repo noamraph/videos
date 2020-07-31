@@ -1,6 +1,22 @@
 from __future__ import annotations
 
-from typing import Dict, List, Set, Hashable
+from typing import Dict, List, Set, Optional, Hashable
+
+from dulwich.repo import Repo
+
+
+# A revision ID. dulwich uses bytes, so we allow both bytes and str.
+# For testing it's easy to use ints, so we just allow any hashable.
+Rev = Hashable
+# A branch name.
+Branch = Hashable
+# A mapping from a revision to its parents. For the root revision, the empty list.
+RevParents = Dict[Rev, List[Rev]]
+# A mapping from a revision to its first parent, or None for the root revision.
+RevParent = Dict[Rev, Optional[Rev]]
+# A mapping from a branch name to the revisions it points to
+# (There can be a few, for both local and remote branches)
+BranchRevs = Dict[Branch, Set[Rev]]
 
 
 def topological_sort(node_parents: Dict[Hashable, List[Hashable]]) -> List[Hashable]:
@@ -39,6 +55,31 @@ def topological_sort(node_parents: Dict[Hashable, List[Hashable]]) -> List[Hasha
                     in_r.add(y)
                     in_stack.remove(y)
     return r
+
+
+def get_git_revisions(git: Repo) -> (RevParents, BranchRevs):
+    branch_revs: BranchRevs = {}
+    for ref in git.refs:
+        if ref.startswith(b'refs/heads/'):
+            branch = ref[len(b'refs/heads/'):]
+        elif ref.startswith(b'refs/remotes/'):
+            remote_and_branch = ref[len(b'refs/remotes/'):]
+            _remote, branch = remote_and_branch.split(b'/', 1)
+        else:
+            continue
+        branch_revs.setdefault(branch, set()).add(git[ref].id)
+
+    rev_parents: RevParents = {}
+    todo = set(rev for revs in branch_revs.values() for rev in revs)
+    while todo:
+        rev = todo.pop()
+        commit = git[rev]
+        rev_parents[rev] = commit.parents
+        for rev2 in commit.parents:
+            if rev2 not in rev_parents:
+                todo.add(rev2)
+
+    return rev_parents, branch_revs
 
 
 def main():

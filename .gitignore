@@ -4,6 +4,7 @@ venv
 dist
 .pytest_cache
 __pycache__
+/dpiehist.html
 
 # .idea gitignore, from
 # https://github.com/github/gitignore/blob/master/Global/JetBrains.gitignore

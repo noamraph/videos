@@ -21,12 +21,37 @@ docs = ["sphinx", "zope.interface"]
 tests = ["coverage", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface"]
 
 [[package]]
+category = "main"
+description = "Python package for providing Mozilla's CA Bundle."
+name = "certifi"
+optional = false
+python-versions = "*"
+version = "2020.6.20"
+
+[[package]]
 category = "dev"
 description = "Cross-platform colored terminal text."
 name = "colorama"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 version = "0.4.3"
+
+[[package]]
+category = "main"
+description = "Python Git Library"
+name = "dulwich"
+optional = false
+python-versions = ">=3.5"
+version = "0.20.5"
+
+[package.dependencies]
+certifi = "*"
+urllib3 = ">=1.24.1"
+
+[package.extras]
+fastimport = ["fastimport"]
+https = ["urllib3 (>=1.24.1)"]
+pgp = ["gpg"]
 
 [[package]]
 category = "dev"
@@ -99,6 +124,19 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 version = "1.15.0"
 
 [[package]]
+category = "main"
+description = "HTTP library with thread-safe connection pooling, file post, and more."
+name = "urllib3"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
+version = "1.25.10"
+
+[package.extras]
+brotli = ["brotlipy (>=0.6.0)"]
+secure = ["certifi", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "pyOpenSSL (>=0.14)", "ipaddress"]
+socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7,<2.0)"]
+
+[[package]]
 category = "dev"
 description = "Backport of pathlib-compatible object wrapper for zip files"
 name = "zipp"
@@ -111,7 +149,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "62bec4e5cde725e1cc8213f6437d0a6591c5a705c742838027ec57e41020578e"
+content-hash = "55846c6ad1391ecfa5365b101ba2055fe4dbd827acedd780a69de6bd9a1795c6"
 lock-version = "1.1"
 python-versions = "^3.7"
 
@@ -124,9 +162,29 @@ attrs = [
     {file = "attrs-19.3.0-py2.py3-none-any.whl", hash = "sha256:08a96c641c3a74e44eb59afb61a24f2cb9f4d7188748e76ba4bb5edfa3cb7d1c"},
     {file = "attrs-19.3.0.tar.gz", hash = "sha256:f7b7ce16570fe9965acd6d30101a28f62fb4a7f9e926b3bbc9b61f8b04247e72"},
 ]
+certifi = [
+    {file = "certifi-2020.6.20-py2.py3-none-any.whl", hash = "sha256:8fc0819f1f30ba15bdb34cceffb9ef04d99f420f68eb75d901e9560b8749fc41"},
+    {file = "certifi-2020.6.20.tar.gz", hash = "sha256:5930595817496dd21bb8dc35dad090f1c2cd0adfaf21204bf6732ca5d8ee34d3"},
+]
 colorama = [
     {file = "colorama-0.4.3-py2.py3-none-any.whl", hash = "sha256:7d73d2a99753107a36ac6b455ee49046802e59d9d076ef8e47b61499fa29afff"},
     {file = "colorama-0.4.3.tar.gz", hash = "sha256:e96da0d330793e2cb9485e9ddfd918d456036c7149416295932478192f4436a1"},
+]
+dulwich = [
+    {file = "dulwich-0.20.5-cp35-cp35m-macosx_10_14_x86_64.whl", hash = "sha256:31a528b7b4274d4610aed5b6a3403b8250d4dbdf02aaef51cbb795c6d1ce6dda"},
+    {file = "dulwich-0.20.5-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:30355d696d93a58602349b546be6d993e9eee8b4e3d18fe4b4b523fc50e249dc"},
+    {file = "dulwich-0.20.5-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:036fe7f38a31185033fff6d6ecf13d294d4ed58de6cb8655f933732fa1780cde"},
+    {file = "dulwich-0.20.5-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:372d1fd746b9513629f72e4e6a2a4c95bbd9c8fd904cf8ea83fe836c6e3b82be"},
+    {file = "dulwich-0.20.5-cp36-cp36m-win_amd64.whl", hash = "sha256:b45a6beead9d333a6e96a626b3762d12ddebe900973aeac1f6605c43bb29f723"},
+    {file = "dulwich-0.20.5-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:3b6418af63e7b89c83e5d3df37643096f3afd35c0e5c988b3e2f8d55ba0cb89d"},
+    {file = "dulwich-0.20.5-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:17f03a08725b067ebc270ba4e57eb3df68ee77ece4bf930318a71328a6dd240f"},
+    {file = "dulwich-0.20.5-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:863bfb141a1cde6f9b235cac282d6b4c411d547caee6a414846b75db6e990e79"},
+    {file = "dulwich-0.20.5-cp37-cp37m-win_amd64.whl", hash = "sha256:e4154eb65ecca0d7a7732797aabb63c9fd0f0279b4f8d5a92c7e1b981778138d"},
+    {file = "dulwich-0.20.5-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:ef3f1057422a366443bc1a9621ed199a289b56d2958407716ac770ac0eb60716"},
+    {file = "dulwich-0.20.5-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:2a025eb8a794c07ec3bc2f9659a50b4f60a25437a4dad7d06f5317f0390d2e8c"},
+    {file = "dulwich-0.20.5-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:cc46fea2fc3fc5b3bf473982bb3948d08b2d98a7fa59f28410d58d0c8ecf32e6"},
+    {file = "dulwich-0.20.5-cp38-cp38-win_amd64.whl", hash = "sha256:b332249d29918c0fa70d18d0461e7247ad5526a850ef3a1f166508a3af59c6f6"},
+    {file = "dulwich-0.20.5.tar.gz", hash = "sha256:98484ede022da663c96b54bc8dcdb4407072cb50efd5d20d58ca4e7779931305"},
 ]
 importlib-metadata = [
     {file = "importlib_metadata-1.7.0-py2.py3-none-any.whl", hash = "sha256:dc15b2969b4ce36305c51eebe62d418ac7791e9a157911d58bfb1f9ccd8e2070"},
@@ -151,6 +209,10 @@ pytest = [
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
     {file = "six-1.15.0.tar.gz", hash = "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"},
+]
+urllib3 = [
+    {file = "urllib3-1.25.10-py2.py3-none-any.whl", hash = "sha256:e7983572181f5e1522d9c98453462384ee92a0be7fac5f1413a1e35c56cc0461"},
+    {file = "urllib3-1.25.10.tar.gz", hash = "sha256:91056c15fa70756691db97756772bb1eb9678fa585d9184f24534b100dc60f4a"},
 ]
 zipp = [
     {file = "zipp-3.1.0-py3-none-any.whl", hash = "sha256:aa36550ff0c0b7ef7fa639055d797116ee891440eac1a56f378e2d3179e0320b"},
