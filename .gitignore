@@ -3,6 +3,7 @@ venv
 *.egg-info
 dist
 .pytest_cache
+__pycache__
 
 # .idea gitignore, from
 # https://github.com/github/gitignore/blob/master/Global/JetBrains.gitignore
