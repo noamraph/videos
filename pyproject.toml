@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "revbranch"
+version = "0.1.0"
+description = "Attach branch names to git revisions, to help understand repository history"
+license = "MIT"
+homepage = "https://github.com/noamraph/dreampie"
+authors = ["Noam Yorav-Raphael <noamraph@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.4"
