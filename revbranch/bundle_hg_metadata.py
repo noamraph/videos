@@ -1,4 +1,4 @@
-from typing import List, Dict, BinaryIO, cast
+from typing import List, Dict, IO, cast
 import hashlib
 import struct
 
@@ -75,7 +75,8 @@ def get_rev_chunk(commit: Commit, branch: bytes, git_hg: Dict[bytes, bytes], las
     return chunk, changelog_text
 
 
-def write_bundle(f: BinaryIO, revs: List[bytes], rev_branch: Dict[bytes, bytes], git: Repo):
+def write_bundle(f: IO[bytes], revs: List[bytes], rev_branch: Dict[bytes, bytes], git: Repo,
+                 unknown=b'unknown') -> Dict[bytes, bytes]:
     """
     Write an HG bundle with only metadata, to help visualize the branch
     assignment.
@@ -84,15 +85,17 @@ def write_bundle(f: BinaryIO, revs: List[bytes], rev_branch: Dict[bytes, bytes],
     :param revs: topologically-sorted list of revision IDs
     :param rev_branch: Map a revision ID to its branch
     :param git: dulwich git repo
+    :param unknown: branch name to give for revisions not in rev_branch
     """
     f.write(b'HG10UN')
     git_hg = {}
     last_changelog = b''
     for rev in revs:
         chunk, last_changelog = get_rev_chunk(
-            git[rev], cast(bytes, rev_branch[rev]), git_hg, len(last_changelog))
+            git[rev], cast(bytes, rev_branch.get(rev, unknown)), git_hg, len(last_changelog))
         f.write(chunk)
     for i in range(3):
         # 3 null chunks: one to end the changelog group, one to end the empty
         # manifest group, and one to end the empty filelist.
         f.write(b'\0' * 4)
+    return git_hg

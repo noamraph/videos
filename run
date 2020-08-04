@@ -1,0 +1,5 @@
+#!/bin/sh
+STARTDIR=$(pwd)
+TOML_DIR=$(dirname "$0")
+cd "$TOML_DIR" || exit
+poetry run bash -c "cd $STARTDIR && python -c 'from revbranch.revbranch import main; main()' $*"

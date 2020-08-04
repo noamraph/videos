@@ -12,6 +12,8 @@ dulwich = "^0.20.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.4"
+tqdm = "^4.48.2"
+python-hglib = "^2.6.1"
 
 [tool.poetry.scripts]
 revbranch = 'revbranch.revbranch:main'

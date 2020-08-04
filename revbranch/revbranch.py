@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import sys
+import os
 from typing import Dict, List, Set, Optional, Hashable, Any, TypeVar, Generator
 import time
-from subprocess import check_output
+from subprocess import check_call, DEVNULL
+from pathlib import Path
+from shutil import get_terminal_size
+import tempfile
 
 from dulwich.repo import Repo
 from dulwich.objects import Tree, Blob, Commit
+from dulwich.porcelain import parse_commit
+
+from .bundle_hg_metadata import write_bundle
 
 # A revision ID. For testing it's easy to use ints, so we just allow any hashable.
 Rev = TypeVar('Rev', bound=Hashable)
@@ -35,12 +43,13 @@ DIR = 0o40000
 SUBMODULE = 0o160000
 
 NOTES_REF = b'refs/notes/revbranch'
+NOTES_SHORT_REF = b'revbranch'
 
 
 COMMON_MASTER_BRANCH_NAMES = {b'master', b'main', b'default', b'primary', b'root'}
 
 
-def topological_sort(node_parents: Dict[Hashable, List[Hashable]]) -> List[Hashable]:
+def topological_sort(node_parents: Dict[Rev, List[Rev]]) -> List[Rev]:
     """
     Sort nodes in an order so that each node comes after its parents.
     """
@@ -120,19 +129,60 @@ def parse_notes_tree(git: Repo, tree: Tree, prefix=b'') -> Dict[bytes, bytes]:
     return rev_note
 
 
-def get_git_revbranches(git: Repo) -> RevBranch:
+def get_revbranch_tree(git: Repo) -> Optional[Tree]:
+    """Return None if there's no ref"""
     try:
         ref = git.refs[NOTES_REF]
     except KeyError:
-        return {}
+        return None
     notes = git[ref]
     if isinstance(notes, Commit):
-        tree = git[notes.tree]
+        return git[notes.tree]
     elif isinstance(notes, Tree):
-        tree = notes
+        return notes
     else:
         raise RuntimeError(f"{NOTES_REF} should be either a commit or a tree")
-    return parse_notes_tree(git, tree)
+
+
+def get_git_revbranches(git: Repo) -> RevBranch:
+    """
+    Get all the recorded revbranches
+    """
+    tree = get_revbranch_tree(git)
+    if tree is None:
+        return {}
+    rev_note = parse_notes_tree(git, tree)
+    return {rev: note.strip() for rev, note in rev_note.items() if note.strip()}
+
+
+def get_git_notes(git: Repo, tree: Tree, rev_suffix: bytes) -> Optional[bytes]:
+    """
+    Get the notes for a rev. Return None if not found.
+    rev_suffix is the revision hash. When this function is called recursively,
+    it is the remaining suffix.
+    """
+    for entry in tree.iteritems():
+        if entry.mode == DIR:
+            if rev_suffix.startswith(entry.path):
+                r = get_git_notes(git, git[entry.sha], rev_suffix[len(entry.path):])
+                if r is not None:
+                    return r
+        elif entry.mode == REG:
+            if entry.path == rev_suffix:
+                return git[entry.sha].data
+        else:
+            raise RuntimeError(f"notes tree contains unexpected mode {entry.mode!r}")
+    else:
+        # Not found
+        return None
+
+
+def get_git_revbranch(git: Repo, rev: bytes) -> Optional[bytes]:
+    tree = get_revbranch_tree(git)
+    if tree is None:
+        return None
+    note = get_git_notes(git, tree, rev)
+    return note.strip() if note and note.strip() else None
 
 
 def update_git_revbranches(git: Repo, rev_branch: RevBranch):
@@ -165,9 +215,10 @@ def update_git_revbranches(git: Repo, rev_branch: RevBranch):
     tmp_notes_ref = b'refs/notes/tmp-revbranch'
     git.refs[tmp_notes_ref] = commit.id
     # git 2.7 doesn't support --quiet, so we just consume the output
-    _output = check_output(
+    check_call(
         ['git', '-C', git.path, 'notes',
-         '--ref', 'revbranch', 'merge', '--strategy', 'theirs', tmp_notes_ref])
+         '--ref', NOTES_SHORT_REF, 'merge', '--strategy', 'theirs', tmp_notes_ref],
+        stdout=DEVNULL, stderr=DEVNULL)
     git.refs.remove_if_equals(tmp_notes_ref, commit.id)
 
 
@@ -213,7 +264,7 @@ def fill_unknown_branches_gen(rev: Rev, root_branch: Branch,
     # well. Otherwise, we return the union of the possible branches.
     if rev in rev_branch0:
         my_branch = rev_branch0[rev]
-        for rev2 in rev_children[rev]:
+        for rev2 in rev_children.get(rev, []):
             possible_branches2 = yield rev2, my_branch
             if len(possible_branches2) > 1:
                 ambig_revs[rev2] = possible_branches2
@@ -251,7 +302,7 @@ def fill_unknown_branches_gen(rev: Rev, root_branch: Branch,
     if len(possible_branches) == 1:
         [branch] = possible_branches
         new_rev_branch[rev] = branch
-        return set(branch)
+        return {branch}
     else:
         assert len(possible_branches) > 1
         return possible_branches
@@ -373,5 +424,160 @@ def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_
     return new_rev_branch, unnamed_revs, ambig_revs
 
 
+def find_git_dir(path0: Path = None):
+    """
+    Search for an ancestor directory with a ".git" subdirectory.
+    """
+    if path0 is None:
+        path0 = Path.cwd()
+    path = path0.absolute()
+    while path.parent != path:
+        if path.joinpath('.git').exists():
+            return path
+        else:
+            path = path.parent
+    else:
+        raise RuntimeError(f"Couldn't find git directory for {path0}")
+
+
+def cmd_update(gitdir):
+    git = Repo(gitdir)
+    rev_parents, branch_revs = get_git_revisions(git)
+    rev_parent = {rev: parents[0] if parents else None for rev, parents in rev_parents.items()}
+    rev_branch0 = get_git_revbranches(git)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(
+        rev_parent, rev_branch0, branch_revs)
+    unnamed_roots = [rev for rev in unnamed_revs if rev_parent[rev] is None]
+    unnamed_leaves = [rev for rev in unnamed_revs if rev_parent[rev] is not None]
+
+    columns = get_terminal_size().columns
+
+    def print_line(s):
+        print(s[:columns])
+
+    update_git_revbranches(git, new_rev_branch)
+    print(f"Added revbranches for {len(new_rev_branch)} commits.\n")
+
+    for rev in unnamed_roots:
+        short_rev = rev[:8].decode('ascii')
+        print(f"Please specify the branch name of the root commit:\n"
+              f"{sys.argv[0]} set {short_rev} <branch name>\n")
+
+    if unnamed_leaves:
+        print("The following revisions don't have an assigned branch.\n"
+              "You need to assign a branch to them.\n")
+        rev_children = {}
+        for rev, parents in rev_parents.items():
+            for parent in parents:
+                rev_children.setdefault(parent, []).append(rev)
+        for rev in unnamed_leaves:
+            commit = git[rev]
+            first_line = commit.message.split(b'\n', 1)[0]
+            print_line(f"  {rev[:8].decode('ascii')}  {first_line.decode('utf8')}")
+            for rev2 in rev_children[rev]:
+                commit2 = git[rev2]
+                first_line2 = commit2.message.split(b'\n', 1)[0]
+                print_line(f"    merged to: {rev2[:8].decode('ascii')}  {first_line2.decode('utf8')}")
+            print()
+
+    if ambig_revs:
+        print("Each of the following revisions needs to be assigned a branch from \n"
+              "several possible branches. For each revision, run one of the command.\n")
+        revs = sorted((rev for rev in ambig_revs.keys()), key=lambda rev: git[rev].author_time)
+        for rev in revs:
+            branches = ambig_revs[rev]
+            commit = git[rev]
+            short_rev = rev[:8].decode('ascii')
+            first_line = commit.message.split(b'\n', 1)[0]
+            print_line(f"{rev[:8].decode('ascii')}  {first_line.decode('utf8')}")
+            for branch in branches:
+                print_line(f'  {sys.argv[0]} set {short_rev} {branch.decode("ascii")}')
+            print()
+
+
+def parse_commit_or_exit(git: Repo, revspec: str) -> bytes:
+    try:
+        return parse_commit(git, revspec).id
+    except KeyError:
+        print(f"Couldn't find commit {revspec!r}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def cmd_get(gitdir, revspec):
+    git = Repo(gitdir)
+    rev = parse_commit_or_exit(git, revspec)
+    branch = get_git_revbranch(git, rev)
+    if not branch:
+        print("Unknown branch", file=sys.stderr)
+        raise SystemExit(1)
+    print(branch.decode('ascii'))
+
+
+def cmd_set(gitdir, revspec, branch):
+    # git 2.7 doesn't support --quiet, so we just consume the output
+    check_call(['git', '-C', gitdir, 'notes', '--ref', NOTES_SHORT_REF,
+                'add', '-f', '-m', branch, revspec],
+               stderr=DEVNULL)
+
+
+def cmd_show(gitdir):
+    git = Repo(gitdir)
+    rev_parents, branch_revs = get_git_revisions(git)
+    rev_branch = get_git_revbranches(git)
+    revs0 = sorted(rev_parents.keys(), key=lambda sha: git[sha].author_time)
+    revs = topological_sort({rev: rev_parents[rev] for rev in revs0})
+    with tempfile.TemporaryDirectory() as tempdir:
+        print(f"Creating HG repository in {tempdir}")
+        check_call(['hg', '--config', 'format.sparse-revlog=0', 'init', tempdir])
+        with tempfile.NamedTemporaryFile() as f:
+            _git_hg = write_bundle(f, revs, rev_branch, git)
+            f.flush()
+            check_call(['hg', '-R', tempdir, 'unbundle', f.name])
+        os.chdir(tempdir)
+        check_call(['thg', 'log', '--newworkbench'])
+
+
 def main():
-    print("Hello world!")
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="Assign permanent branch names to git revisions")
+    parser.add_argument('-C', dest='gitdir', metavar='path', help=(
+        'Path to the git repository. By default use the working directory.'))
+    sp = parser.add_subparsers(dest='cmd')
+    sp.required = True
+
+    _update_sp = sp.add_parser(
+        'update', help=('Update revisions branches with what can be deduced, and '
+                        'describe what needs to be filled manually.'))
+
+    get_sp = sp.add_parser('get', help='get the branch name of a revision')
+    get_sp.add_argument('rev', help='Git revision')
+
+    set_sp = sp.add_parser('set', help='set the branch name of a revision')
+    set_sp.add_argument('rev', help='Git revision')
+    set_sp.add_argument('branch', help='Branch name')
+
+    _show_sp = sp.add_parser(
+        'show', help='Show the current history and branches using TortoiseHG')
+
+    args = parser.parse_args()
+
+    if args.gitdir:
+        gitdir = args.gitdir
+    else:
+        gitdir = find_git_dir()
+
+    if args.cmd == 'update':
+        cmd_update(gitdir)
+    elif args.cmd == 'get':
+        cmd_get(gitdir, args.rev)
+    elif args.cmd == 'set':
+        cmd_set(gitdir, args.rev, args.branch)
+    elif args.cmd == 'show':
+        cmd_show(gitdir)
+    else:
+        assert False
+
+
+if __name__ == '__main__':
+    main()
