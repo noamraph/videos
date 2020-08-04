@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Set, Optional, Hashable, Any, TypeVar
+from typing import Dict, List, Set, Optional, Hashable, Any, TypeVar, Generator
 import time
 from subprocess import check_output
 
@@ -22,7 +22,8 @@ RevParent = Dict[Rev, Optional[Rev]]
 BranchRevs = Dict[Branch, Set[Rev]]
 # A mapping from a revision to its assigned branch
 RevBranch = Dict[Rev, Branch]
-# A mapping from a revision to a set of branches
+# A mapping from a revision to a set of branches. Used both for the alternatives
+# in case of ambiguity, and for the list of branches pointing at a revision.
 RevBranches = Dict[Rev, Set[Branch]]
 
 
@@ -34,6 +35,9 @@ DIR = 0o40000
 SUBMODULE = 0o160000
 
 NOTES_REF = b'refs/notes/revbranch'
+
+
+COMMON_MASTER_BRANCH_NAMES = {b'master', b'main', b'default', b'primary', b'root'}
 
 
 def topological_sort(node_parents: Dict[Hashable, List[Hashable]]) -> List[Hashable]:
@@ -167,12 +171,15 @@ def update_git_revbranches(git: Repo, rev_branch: RevBranch):
     git.refs.remove_if_equals(tmp_notes_ref, commit.id)
 
 
-def fill_unknown_branches_rec(rev: Rev, root_branch: Branch,
+def fill_unknown_branches_gen(rev: Rev, root_branch: Branch,
                               rev_children: RevChildren, rev_branch0: RevBranch, rev_branches: RevBranches,
                               new_rev_branch: RevBranch, unnamed_leaves: Set[Rev], ambig_revs: RevBranches,
-                              ) -> Set[Branch]:
+                              ) -> Generator[(Rev, Branch), Set[Branch], Set[Branch]]:
     """
     The recursive function that traverses the tree for fill_unknown_branches()
+    In order to avoid exceeding the maximum recursion depth, we use "yield",
+    passing it (rev, root_branch) for the recursive call, and using its return
+    value.
     :param rev: Scan this revision and its descendants.
     :param root_branch: The branch of rev's nearest ancestor. This gets priority
         when assigning branches.
@@ -207,22 +214,17 @@ def fill_unknown_branches_rec(rev: Rev, root_branch: Branch,
     if rev in rev_branch0:
         my_branch = rev_branch0[rev]
         for rev2 in rev_children[rev]:
-            possible_branches2 = fill_unknown_branches_rec(
-                rev2, my_branch,
-                rev_children, rev_branch0, rev_branches,
-                new_rev_branch, unnamed_leaves, ambig_revs)
+            possible_branches2 = yield rev2, my_branch
             if len(possible_branches2) > 1:
                 ambig_revs[rev2] = possible_branches2
         return {my_branch}
 
     # else... (Our branch is not known)
 
-    possible_branches_sets = {}
+    possible_branches_sets: Dict[Rev, Set[Branch]] = {}
     for rev2 in rev_children.get(rev, []):
-        possible_branches_sets[rev2] = fill_unknown_branches_rec(
-            rev2, root_branch,
-            rev_children, rev_branch0, rev_branches,
-            new_rev_branch, unnamed_leaves, ambig_revs)
+        possible_branches = yield rev2, root_branch
+        possible_branches_sets[rev2] = possible_branches
     # A list of the possible branches sets, plus a 1-set for each
     # branch pointing at us.
     my_branches = rev_branches.get(rev, set())
@@ -255,7 +257,27 @@ def fill_unknown_branches_rec(rev: Rev, root_branch: Branch,
         return possible_branches
 
 
-def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_revs: BranchRevs
+def get_all_master_branches(rev: Rev, rev_children: RevChildren, rev_branches: RevBranches,
+                            common_master_branch_names: Set[Branch]) -> Set[Branch]:
+    """
+    Return a set with all the branches that point to rev's descendants that are in
+    COMMON_MASTER_BRANCH_NAMES
+    """
+    # We don't use recursion to avoid exceeding the maximum recursion depth
+    todo = [rev]
+    master_branches: Set[Branch] = set()
+    while todo:
+        rev1 = todo.pop()
+        for branch in rev_branches.get(rev1, []):
+            if branch in common_master_branch_names:
+                master_branches.add(branch)
+        for rev2 in rev_children.get(rev1, []):
+            todo.append(rev2)
+    return master_branches
+
+
+def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_revs: BranchRevs,
+                          common_master_branch_names: Optional[Set[Branch]] = None,
                           ) -> (RevBranch, Set[Rev], RevBranches):
     """
     Assign branch names to revisions that don't yet have a branch, and also
@@ -263,21 +285,27 @@ def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_
     :param rev_parent: The parent of each revision, or None for the root.
         (We are only interested in the first parent of merge commits).
     :param rev_branch0: The current mapping from revision to branch name.
-        The roots should already have a branch - that's the job of
-        fill_roots().
     :param branch_revs: A map from a branch name to a set of revisions
         it refers to. (There can be multiple, for both local and remotes).
+    :param common_master_branch_names: Used to fill root revisions. When
+        unspecified, uses COMMON_MASTER_BRANCH_NAMES.
     :return:
     new_rev_branch: A mapping from revisions that didn't have a branch name
         to their new assigned branch.
-    unnamed_leaves: A set of revisions that are leaf nodes and don't have
-        an assigned branch, so the user needs to decide on that. These are
-        second parents of merge revisions. Many times the merge commit message
-        can help recovered the branch name.
+    unnamed_revs: A set of revisions that the user needs to assign a branch to
+        manually. This includes two types:
+        1. leaf nodes. These are second parents of merge revisions. Many times
+           the merge commit message can help recover the branch name.
+        2. root nodes. If a root revision is unnamed, and there is none or
+           more than one branch names from COMMON_MASTER_BRANCH_NAMES,
+           the user needs to assign a branch name.
     ambig_revs: A mapping from revisions to sets of branch names. These are
         ambiguous revisions, where the user needs to decide to which of those
         branches the revision belongs to.
     """
+    if common_master_branch_names is None:
+        common_master_branch_names = COMMON_MASTER_BRANCH_NAMES
+
     rev_children: RevChildren = {}
     roots = []
     for rev, parent in rev_parent.items():
@@ -292,18 +320,57 @@ def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_
             rev_branches.setdefault(rev, set()).add(branch)
 
     new_rev_branch: RevBranch = {}
-    unnamed_leaves: Set[Rev] = set()
+    unnamed_revs: Set[Rev] = set()
     ambig_revs: RevBranches = {}
 
     for root in roots:
-        branch = rev_branch0[root]  # We assume that roots already have assigned branches
-        possible_branches = fill_unknown_branches_rec(
-            root, branch,
-            rev_children, rev_branch0, rev_branches,
-            new_rev_branch, unnamed_leaves, ambig_revs)
-        assert possible_branches == {branch}
+        if root not in rev_branch0:
+            branches = get_all_master_branches(root, rev_children, rev_branches, common_master_branch_names)
+            if len(branches) != 1:
+                unnamed_revs.add(root)
+                continue
+            else:
+                [root_branch] = branches
+                new_rev_branch[root] = root_branch
+        else:
+            root_branch = rev_branch0[root]  # We assume that roots already have assigned branches
 
-    return new_rev_branch, unnamed_leaves, ambig_revs
+        # This is a way to do recursion without exceeding the maximum recursion
+        # depth. We hold a stack of generators. Each generator can yield the
+        # arguments to a recursive call, and expects to receive (by .send())
+        # the return value of the generator. We also either hold or don't hold
+        # a return value (according to holding_retval). If we are holding a
+        # retval, the generator at the top of the stack is expecting to receive
+        # it by .send(). If we don't hold a retval, the generator at the top of
+        # the stack wasn't started yet, so we should call next() on it.
+        holding_retval = False
+        retval = None
+        stack: List[Generator] = [fill_unknown_branches_gen(
+            root, root_branch,
+            rev_children, rev_branch0, rev_branches,
+            new_rev_branch, unnamed_revs, ambig_revs)]
+        while stack:
+            try:
+                if not holding_retval:
+                    assert not stack[-1].gi_running
+                    rev, branch = next(stack[-1])
+                else:
+                    holding_retval = False
+                    rev, branch = stack[-1].send(retval)
+            except StopIteration as e:
+                assert e.value is not None
+                retval = e.value
+                holding_retval = True
+                stack.pop()
+            else:
+                stack.append(fill_unknown_branches_gen(
+                    rev, branch,
+                    rev_children, rev_branch0, rev_branches,
+                    new_rev_branch, unnamed_revs, ambig_revs))
+
+        assert holding_retval and retval == {root_branch}
+
+    return new_rev_branch, unnamed_revs, ambig_revs
 
 
 def main():

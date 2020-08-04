@@ -44,18 +44,18 @@ def test_fill_unknown_branches():
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
     rev_branch0 = {1: 'm'}
     branch_revs = {'m': {4}, 'a': {7}, 'b': {9}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a', 8: 'b', 9: 'b'}
-    assert unnamed_leaves == set()
+    assert unnamed_revs == set()
     assert ambig_revs == {5: {'a', 'b'}}
 
     # 2. Now we specify the ambiguous rev
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
     rev_branch0 = {1: 'm', 5: 'a'}
     branch_revs = {'m': {4}, 'a': {7}, 'b': {9}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 6: 'a', 7: 'a', 8: 'b', 9: 'b'}
-    assert unnamed_leaves == set()
+    assert unnamed_revs == set()
     assert ambig_revs == {}
 
     # 3. Make sure that adding an additional branch pointer to a revision with
@@ -63,27 +63,27 @@ def test_fill_unknown_branches():
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
     rev_branch0 = {1: 'm', 5: 'a'}
     branch_revs = {'m': {4}, 'a': {7}, 'b': {9}, 'c': {5}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 6: 'a', 7: 'a', 8: 'b', 9: 'b'}
-    assert unnamed_leaves == set()
+    assert unnamed_revs == set()
     assert ambig_revs == {}
 
     # 4. An unnamed leaf (based on 1, remove the branch pointer 'b')
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
     rev_branch0 = {1: 'm'}
     branch_revs = {'m': {4}, 'a': {7}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
-    assert unnamed_leaves == {9}
+    assert unnamed_revs == {9}
     assert ambig_revs == {}
 
     # 5. Have an unnamed leaf and an ambiguity (based on 4)
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8, 10: 9}
     rev_branch0 = {1: 'm', 8: 'b'}
     branch_revs = {'m': {4}, 'a': {7}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
-    assert unnamed_leaves == {10}
+    assert unnamed_revs == {10}
     assert ambig_revs == {5: {'a', 'b'}}
 
     # 6. A branch pointer to a rev with an unnamed descendant doesn't matter,
@@ -91,16 +91,39 @@ def test_fill_unknown_branches():
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
     rev_branch0 = {1: 'm'}
     branch_revs = {'m': {4}, 'a': {7}, 'b': {8}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
-    assert unnamed_leaves == {9}
+    assert unnamed_revs == {9}
     assert ambig_revs == {}
 
     # 7. Multiple branches pointing at a leaf is also an ambiguity (based on 1)
     rev_parent = {1: None, 2: 1, 3: 2, 4: 3,  5: 2, 6: 5, 7: 6,  8: 6, 9: 8, 10: 9}
     rev_branch0 = {1: 'm', 9: 'b'}
     branch_revs = {'m': {4}, 'a': {7}, 'c': {10}, 'd': {10}}
-    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
     assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a', 8: 'b'}
-    assert unnamed_leaves == set()
+    assert unnamed_revs == set()
     assert ambig_revs == {5: {'a', 'b'}, 10: {'c', 'd'}}
+
+    # 8. Automatically determine root branch (based on 1)
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {}
+    branch_revs = {'m': {4}, 'a': {7}, 'b': {9}}
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs,
+                                                                     {'m', 'master'})
+    assert new_rev_branch == {1: 'm', 2: 'm', 3: 'm', 4: 'm', 7: 'a', 8: 'b', 9: 'b'}
+    assert unnamed_revs == set()
+    assert ambig_revs == {5: {'a', 'b'}}
+
+    # 9. Multiple roots, make sure that for the unspecified roots only the root is
+    # added to unnamed_revs.
+    rev_parent = {1: None, 2: 1, 3: 1,
+                  4: None, 5: 4, 6: 4,
+                  7: None, 8: 7, 9: 8,
+                  }
+    rev_branch0 = {}
+    branch_revs = {'m1': {2, 5}, 'm2': {3}, 'a': {6, 9}}
+    new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs, {'m1', 'm2'})
+    assert new_rev_branch == {4: 'm1', 5: 'm1', 6: 'a'}
+    assert unnamed_revs == {1, 7}
+    assert ambig_revs == {}
