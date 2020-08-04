@@ -7,7 +7,7 @@ from itertools import permutations
 import pytest
 
 from revbranch.revbranch import (
-    topological_sort,)
+    topological_sort, fill_unknown_branches)
 
 
 def verify_topological_sort(sorted_nodes: List[Hashable], node_parents: Dict[Hashable, List[Hashable]]):
@@ -37,3 +37,70 @@ def test_topological_sort():
             node_parents = OrderedDict(perm)
             sorted_nodes = topological_sort(node_parents)
             verify_topological_sort(sorted_nodes, node_parents)
+
+
+def test_fill_unknown_branches():
+    # 1. a pretty standard tree. Only the root is marked with 'm' (for 'master')
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {1: 'm'}
+    branch_revs = {'m': {4}, 'a': {7}, 'b': {9}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a', 8: 'b', 9: 'b'}
+    assert unnamed_leaves == set()
+    assert ambig_revs == {5: {'a', 'b'}}
+
+    # 2. Now we specify the ambiguous rev
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {1: 'm', 5: 'a'}
+    branch_revs = {'m': {4}, 'a': {7}, 'b': {9}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 6: 'a', 7: 'a', 8: 'b', 9: 'b'}
+    assert unnamed_leaves == set()
+    assert ambig_revs == {}
+
+    # 3. Make sure that adding an additional branch pointer to a revision with
+    # a known branch doesn't matter. (based on 2)
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {1: 'm', 5: 'a'}
+    branch_revs = {'m': {4}, 'a': {7}, 'b': {9}, 'c': {5}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 6: 'a', 7: 'a', 8: 'b', 9: 'b'}
+    assert unnamed_leaves == set()
+    assert ambig_revs == {}
+
+    # 4. An unnamed leaf (based on 1, remove the branch pointer 'b')
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {1: 'm'}
+    branch_revs = {'m': {4}, 'a': {7}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
+    assert unnamed_leaves == {9}
+    assert ambig_revs == {}
+
+    # 5. Have an unnamed leaf and an ambiguity (based on 4)
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8, 10: 9}
+    rev_branch0 = {1: 'm', 8: 'b'}
+    branch_revs = {'m': {4}, 'a': {7}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
+    assert unnamed_leaves == {10}
+    assert ambig_revs == {5: {'a', 'b'}}
+
+    # 6. A branch pointer to a rev with an unnamed descendant doesn't matter,
+    # since the rev could still belong to the unnamed branch (based on 4)
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3, 5: 2, 6: 5, 7: 6, 8: 6, 9: 8}
+    rev_branch0 = {1: 'm'}
+    branch_revs = {'m': {4}, 'a': {7}, 'b': {8}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a'}
+    assert unnamed_leaves == {9}
+    assert ambig_revs == {}
+
+    # 7. Multiple branches pointing at a leaf is also an ambiguity (based on 1)
+    rev_parent = {1: None, 2: 1, 3: 2, 4: 3,  5: 2, 6: 5, 7: 6,  8: 6, 9: 8, 10: 9}
+    rev_branch0 = {1: 'm', 9: 'b'}
+    branch_revs = {'m': {4}, 'a': {7}, 'c': {10}, 'd': {10}}
+    new_rev_branch, unnamed_leaves, ambig_revs = fill_unknown_branches(rev_parent, rev_branch0, branch_revs)
+    assert new_rev_branch == {2: 'm', 3: 'm', 4: 'm', 7: 'a', 8: 'b'}
+    assert unnamed_leaves == set()
+    assert ambig_revs == {5: {'a', 'b'}, 10: {'c', 'd'}}
