@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import sys
-import os
 from typing import Dict, List, Set, Optional, Hashable, Any, TypeVar, Generator
 import time
 from subprocess import check_call, DEVNULL
 from pathlib import Path
 from shutil import get_terminal_size
-import tempfile
+import re
 
 from dulwich.repo import Repo
 from dulwich.objects import Tree, Blob, Commit
 from dulwich.porcelain import parse_commit
-
-from .bundle_hg_metadata import write_bundle
+from dulwich.config import StackedConfig, ConfigFile
 
 # A revision ID. For testing it's easy to use ints, so we just allow any hashable.
 Rev = TypeVar('Rev', bound=Hashable)
@@ -25,14 +23,11 @@ RevParents = Dict[Rev, List[Rev]]
 RevChildren = Dict[Rev, Set[Rev]]
 # A mapping from a revision to its first parent, or None for the root revision.
 RevParent = Dict[Rev, Optional[Rev]]
-# A mapping from a branch name to the revisions it points to
-# (There can be a few, for both local and remote branches)
-BranchRevs = Dict[Branch, Set[Rev]]
-# A mapping from a revision to its assigned branch
-RevBranch = Dict[Rev, Branch]
 # A mapping from a revision to a set of branches. Used both for the alternatives
 # in case of ambiguity, and for the list of branches pointing at a revision.
 RevBranches = Dict[Rev, Set[Branch]]
+# A mapping from a revision to its assigned branch
+RevBranch = Dict[Rev, Branch]
 
 
 # Git file modes
@@ -47,6 +42,21 @@ NOTES_SHORT_REF = b'revbranch'
 
 
 COMMON_MASTER_BRANCH_NAMES = {b'master', b'main', b'default', b'primary', b'root'}
+
+HELP = r"""
+Use the configuration value revbranch.regex in order to parse automatic merge
+commits and treat them like branches that refer to their second parent.
+Make sure that the matching group doesn't include prefixes - that is, it should
+contain "master" and not "origin/master". For example, this matches two types of
+commit messages:
+
+git config revbranch.regex \
+'^Merged in ([^ ]+) \(pull request|^Merge remote-tracking branch \'"'"'([^'"'"']+)\'"'"' into'
+
+This matches:
+1. "Merged in <branch> (pull request..."
+2. "Merge remote-tracking branch '<branch>' into..."
+"""
 
 
 def topological_sort(node_parents: Dict[Rev, List[Rev]]) -> List[Rev]:
@@ -87,8 +97,31 @@ def topological_sort(node_parents: Dict[Rev, List[Rev]]) -> List[Rev]:
     return r
 
 
-def get_git_revisions(git: Repo) -> (RevParents, BranchRevs):
-    branch_revs: BranchRevs = {}
+def search_merge_regex(merge_regex: bytes, message: bytes) -> Optional[bytes]:
+    """
+    :param merge_regex: The regex to search for
+    :param message: The commit message
+    :return: branch name, or None
+    """
+    m = re.search(merge_regex, message)
+    if not m:
+        return None
+    groups = [s for s in m.groups() if s]
+    if len(groups) != 1:
+        raise ValueError(
+            f"The regex is expected to return exactly one non-empty group if it matches. "
+            f"searched for {merge_regex!r} in {message!r}")
+    [branch] = groups
+    return branch
+
+
+def get_git_revisions(git: Repo, merge_regex: Optional[bytes] = None) -> (RevParents, RevBranches):
+    """
+    Scan the git repository, return rev_parents and rev_branches.
+    If merge_regex is given, will add a branch to the second parent of
+    2-parent commits that match the regex.
+    """
+    rev_branches: RevBranches = {}
     for ref in git.refs:
         if ref.startswith(b'refs/heads/'):
             branch = ref[len(b'refs/heads/'):]
@@ -97,10 +130,10 @@ def get_git_revisions(git: Repo) -> (RevParents, BranchRevs):
             _remote, branch = remote_and_branch.split(b'/', 1)
         else:
             continue
-        branch_revs.setdefault(branch, set()).add(git[ref].id)
+        rev_branches.setdefault(git[ref].id, set()).add(branch)
 
     rev_parents: RevParents = {}
-    todo = set(rev for revs in branch_revs.values() for rev in revs)
+    todo = set(rev_branches.keys())
     while todo:
         rev = todo.pop()
         commit = git[rev]
@@ -108,8 +141,12 @@ def get_git_revisions(git: Repo) -> (RevParents, BranchRevs):
         for rev2 in commit.parents:
             if rev2 not in rev_parents:
                 todo.add(rev2)
+        if merge_regex is not None and len(commit.parents) == 2:
+            branch = search_merge_regex(merge_regex, commit.message)
+            if branch is not None:
+                rev_branches.setdefault(commit.parents[1], set()).add(branch)
 
-    return rev_parents, branch_revs
+    return rev_parents, rev_branches
 
 
 def parse_notes_tree(git: Repo, tree: Tree, prefix=b'') -> Dict[bytes, bytes]:
@@ -327,7 +364,7 @@ def get_all_master_branches(rev: Rev, rev_children: RevChildren, rev_branches: R
     return master_branches
 
 
-def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_revs: BranchRevs,
+def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, rev_branches: RevBranches,
                           common_master_branch_names: Optional[Set[Branch]] = None,
                           ) -> (RevBranch, Set[Rev], RevBranches):
     """
@@ -336,8 +373,9 @@ def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_
     :param rev_parent: The parent of each revision, or None for the root.
         (We are only interested in the first parent of merge commits).
     :param rev_branch0: The current mapping from revision to branch name.
-    :param branch_revs: A map from a branch name to a set of revisions
-        it refers to. (There can be multiple, for both local and remotes).
+    :param rev_branches: A map from a revision to a set of branch names that
+        refer to it. Note that the same branch name can refer to multiple
+        revisions.
     :param common_master_branch_names: Used to fill root revisions. When
         unspecified, uses COMMON_MASTER_BRANCH_NAMES.
     :return:
@@ -364,11 +402,6 @@ def fill_unknown_branches(rev_parent: RevParent, rev_branch0: RevBranch, branch_
             rev_children.setdefault(parent, set()).add(rev)
         else:
             roots.append(rev)
-
-    rev_branches: RevBranches = {}
-    for branch, revs in branch_revs.items():
-        for rev in revs:
-            rev_branches.setdefault(rev, set()).add(branch)
 
     new_rev_branch: RevBranch = {}
     unnamed_revs: Set[Rev] = set()
@@ -442,11 +475,12 @@ def find_git_dir(path0: Path = None):
 
 def cmd_update(gitdir):
     git = Repo(gitdir)
-    rev_parents, branch_revs = get_git_revisions(git)
+    merge_regex = get_merge_regex(gitdir)
+    rev_parents, rev_branches = get_git_revisions(git, merge_regex)
     rev_parent = {rev: parents[0] if parents else None for rev, parents in rev_parents.items()}
     rev_branch0 = get_git_revbranches(git)
     new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(
-        rev_parent, rev_branch0, branch_revs)
+        rev_parent, rev_branch0, rev_branches)
     unnamed_roots = [rev for rev in unnamed_revs if rev_parent[rev] is None]
     unnamed_leaves = [rev for rev in unnamed_revs if rev_parent[rev] is not None]
 
@@ -520,27 +554,33 @@ def cmd_set(gitdir, revspec, branch):
                stderr=DEVNULL)
 
 
-def cmd_show(gitdir):
-    git = Repo(gitdir)
-    rev_parents, branch_revs = get_git_revisions(git)
-    rev_branch = get_git_revbranches(git)
-    revs0 = sorted(rev_parents.keys(), key=lambda sha: git[sha].author_time)
-    revs = topological_sort({rev: rev_parents[rev] for rev in revs0})
-    with tempfile.TemporaryDirectory() as tempdir:
-        print(f"Creating HG repository in {tempdir}")
-        check_call(['hg', '--config', 'format.sparse-revlog=0', 'init', tempdir])
-        with tempfile.NamedTemporaryFile() as f:
-            _git_hg = write_bundle(f, revs, rev_branch, git)
-            f.flush()
-            check_call(['hg', '-R', tempdir, 'unbundle', f.name])
-        os.chdir(tempdir)
-        check_call(['thg', 'log', '--newworkbench'])
+def get_git_config(gitdir: str):
+    # I'm not sure why this function isn't already in dulwich, as it seems
+    # quite generic.
+    gitdir = Path(gitdir)
+    backends = StackedConfig.default_backends()
+    local_config_fn = gitdir.joinpath('.git/config')
+    if local_config_fn.exists():
+        backends.append(ConfigFile.from_path(local_config_fn))
+    return StackedConfig(backends, writable=False)
+
+
+def get_merge_regex(gitdir: str) -> Optional[bytes]:
+    config = get_git_config(gitdir)
+    try:
+        return config.get('revbranch', 'regex')
+    except KeyError:
+        return None
 
 
 def main():
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-    parser = ArgumentParser(description="Assign permanent branch names to git revisions")
+    # noinspection PyTypeChecker
+    parser = ArgumentParser(
+        description="Assign permanent branch names to git revisions",
+        epilog=HELP,
+        formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('-C', dest='gitdir', metavar='path', help=(
         'Path to the git repository. By default use the working directory.'))
     sp = parser.add_subparsers(dest='cmd')
@@ -557,9 +597,6 @@ def main():
     set_sp.add_argument('rev', help='Git revision')
     set_sp.add_argument('branch', help='Branch name')
 
-    _show_sp = sp.add_parser(
-        'show', help='Show the current history and branches using TortoiseHG')
-
     args = parser.parse_args()
 
     if args.gitdir:
@@ -573,8 +610,6 @@ def main():
         cmd_get(gitdir, args.rev)
     elif args.cmd == 'set':
         cmd_set(gitdir, args.rev, args.branch)
-    elif args.cmd == 'show':
-        cmd_show(gitdir)
     else:
         assert False
 

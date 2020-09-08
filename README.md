@@ -8,25 +8,40 @@ pip install revbranch
 
 ## Development
 
-Install [poetry](https://python-poetry.org/). Then:
-
 ```
 git clone https://github.com/noamraph/revbranch.git
 cd revbranch
-poetry install 
+python3 -m venv venv
+venv/bin/pip install -e .[dev]
 ```
 
 
 ## Running tests
 
 ```
-poetry run pytest
+venv/bin/pytest
 ```
 
 ## Notes
 
-I like to have the virtualenv inside the directory, and this makes it work:
+To view the notes commit history:
 
 ```
-poetry config virtualenvs.in-project true
+git log -p -g notes/revbranch
+```
+
+To undo the last notes commit (saving a backup in refs/notes/revbranch-backup):
+
+```
+git update-ref refs/notes/revbranch-backup refs/notes/revbranch
+git update-ref refs/notes/revbranch refs/notes/revbranch^
+```
+
+Install a virtualenv with TortoiseHG that can show the revbranches:
+
+```
+python3 -m venv venv
+venv/bin/pip install pyqt5 QScintilla pygit2
+venv/bin/pip install # XXX Noam's hg repo
+venv/bin/pip install # XXX Noam's thg repo
 ```

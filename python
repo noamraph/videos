@@ -1,7 +1,0 @@
-#!/bin/sh
-
-# Make it easy to use poetry's python interpreter
-
-mydir=$(dirname "$0")
-cd "$mydir" || exit
-poetry run python "$@"
