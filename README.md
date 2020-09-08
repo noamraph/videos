@@ -24,6 +24,14 @@ venv/bin/pytest
 
 ## Notes
 
+To view revbranch in `git log`:
+
+```
+git config notes.displayRef refs/notes/revbranch
+```
+
+(or, without config, use `git log --notes=revbranch`)
+
 To view the notes commit history:
 
 ```
@@ -35,6 +43,24 @@ To undo the last notes commit (saving a backup in refs/notes/revbranch-backup):
 ```
 git update-ref refs/notes/revbranch-backup refs/notes/revbranch
 git update-ref refs/notes/revbranch refs/notes/revbranch^
+```
+
+Push revbranch data to server:
+
+```
+git push origin refs/notes/revbranch
+```
+
+Fetch revbranch data from server:
+
+```
+git fetch origin refs/notes/revbranch
+```
+
+To always fetch revbranch data from server:
+
+```
+git config --add remote.origin.fetch '+refs/notes/revbranch:refs/notes/revbranch'
 ```
 
 Install a virtualenv with TortoiseHG that can show the revbranches:
