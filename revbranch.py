@@ -44,6 +44,9 @@ NOTES_SHORT_REF = b'revbranch'
 COMMON_MASTER_BRANCH_NAMES = {b'master', b'main', b'default', b'primary', b'root'}
 
 HELP = r"""
+Note
+----
+
 Use the configuration value revbranch.regex in order to parse automatic merge
 commits and treat them like branches that refer to their second parent.
 Make sure that the matching group doesn't include prefixes - that is, it should
@@ -481,6 +484,7 @@ def cmd_update(gitdir):
     rev_branch0 = get_git_revbranches(git)
     new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(
         rev_parent, rev_branch0, rev_branches)
+    rev_branch = rev_branch0.copy(); rev_branch.update(new_rev_branch)
     unnamed_roots = [rev for rev in unnamed_revs if rev_parent[rev] is None]
     unnamed_leaves = [rev for rev in unnamed_revs if rev_parent[rev] is not None]
 
@@ -495,7 +499,7 @@ def cmd_update(gitdir):
     for rev in unnamed_roots:
         short_rev = rev[:8].decode('ascii')
         print(f"Please specify the branch name of the root commit:\n"
-              f"{sys.argv[0]} set {short_rev} <branch name>\n")
+              f"revbranch set {short_rev} <branch name>\n")
 
     if unnamed_leaves:
         print("The following revisions don't have an assigned branch.\n"
@@ -511,7 +515,8 @@ def cmd_update(gitdir):
             for rev2 in rev_children[rev]:
                 commit2 = git[rev2]
                 first_line2 = commit2.message.split(b'\n', 1)[0]
-                print_line(f"    merged to: {rev2[:8].decode('ascii')}  {first_line2.decode('utf8')}")
+                rev2branch = f"(revbranch {rev_branch[rev2].decode('utf8')})  " if rev2 in rev_branch else ""
+                print_line(f"    merged to: {rev2[:8].decode('ascii')}  {rev2branch}{first_line2.decode('utf8')}")
             print()
 
     if ambig_revs:
@@ -525,7 +530,7 @@ def cmd_update(gitdir):
             first_line = commit.message.split(b'\n', 1)[0]
             print_line(f"{rev[:8].decode('ascii')}  {first_line.decode('utf8')}")
             for branch in branches:
-                print_line(f'  {sys.argv[0]} set {short_rev} {branch.decode("ascii")}')
+                print_line(f'  revbranch set {short_rev} {branch.decode("ascii")}')
             print()
 
 
@@ -583,8 +588,8 @@ def main():
         formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('-C', dest='gitdir', metavar='path', help=(
         'Path to the git repository. By default use the working directory.'))
-    sp = parser.add_subparsers(dest='cmd')
-    sp.required = True
+    sp = parser.add_subparsers(dest='cmd', required=False, description=(
+        '(If not given, "update" is run.)'))
 
     _update_sp = sp.add_parser(
         'update', help=('Update revisions branches with what can be deduced, and '
@@ -604,7 +609,7 @@ def main():
     else:
         gitdir = find_git_dir()
 
-    if args.cmd == 'update':
+    if args.cmd == 'update' or args.cmd is None:
         cmd_update(gitdir)
     elif args.cmd == 'get':
         cmd_get(gitdir, args.rev)
