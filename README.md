@@ -45,3 +45,16 @@ venv/bin/pip install pyqt5 QScintilla pygit2
 venv/bin/pip install # XXX Noam's hg repo
 venv/bin/pip install # XXX Noam's thg repo
 ```
+
+
+## Uploading to PyPI
+
+Based on [this](https://setuptools.readthedocs.io/en/latest/setuptools.html#distributing-a-setuptools-based-project).
+
+```
+pip3 install --upgrade setuptools wheel twine
+
+rm -rf dist build
+python3 setup.py sdist bdist_wheel
+twine upload dist/*
+```
