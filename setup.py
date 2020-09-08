@@ -1,8 +1,8 @@
 from setuptools import setup
 setup(
     name="revbranch",
-    version="0.1",
-    modules=["revbranch"],
+    version="0.1.1",
+    py_modules=["revbranch"],
     entry_points={
         "console_scripts": [
             "revbranch = revbranch:main",
