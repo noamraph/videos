@@ -54,7 +54,7 @@ git push origin refs/notes/revbranch
 Fetch revbranch data from server:
 
 ```
-git fetch origin refs/notes/revbranch
+git fetch origin refs/notes/revbranch:refs/notes/revbranch
 ```
 
 To always fetch revbranch data from server:
@@ -67,6 +67,7 @@ Install a virtualenv with TortoiseHG that can show the revbranches:
 
 ```
 python3 -m venv venv
+venv/bin/pip install -U pip wheel
 venv/bin/pip install pyqt5 QScintilla pygit2
 venv/bin/pip install -U hg+https://code.rhodecode.com/u/noamraph/hg@noam
 venv/bin/pip install -U hg+https://code.rhodecode.com/u/noamraph/thg@noam
