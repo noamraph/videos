@@ -35,7 +35,7 @@ git config notes.displayRef refs/notes/revbranch
 To view the notes commit history:
 
 ```
-git log -p -g notes/revbranch
+git log notes/revbranch
 ```
 
 To undo the last notes commit (saving a backup in refs/notes/revbranch-backup):
