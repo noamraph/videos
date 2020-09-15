@@ -598,7 +598,9 @@ def main():
     get_sp = sp.add_parser('get', help='get the branch name of a revision')
     get_sp.add_argument('rev', help='Git revision')
 
-    set_sp = sp.add_parser('set', help='set the branch name of a revision')
+    set_sp = sp.add_parser('set', help='Set the branch name of a revision, and then update.')
+    set_sp.add_argument('--no-update', action='store_true',
+                        help="Don't run update after setting the revbranch")
     set_sp.add_argument('rev', help='Git revision')
     set_sp.add_argument('branch', help='Branch name')
 
@@ -615,6 +617,8 @@ def main():
         cmd_get(gitdir, args.rev)
     elif args.cmd == 'set':
         cmd_set(gitdir, args.rev, args.branch)
+        if not args.no_update:
+            cmd_update(gitdir)
     else:
         assert False
 
