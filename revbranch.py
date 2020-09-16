@@ -7,6 +7,7 @@ from subprocess import check_call, DEVNULL
 from pathlib import Path
 from shutil import get_terminal_size
 import re
+from itertools import chain
 
 from dulwich.repo import Repo
 from dulwich.objects import Tree, Blob, Commit
@@ -476,7 +477,7 @@ def find_git_dir(path0: Path = None):
         raise RuntimeError(f"Couldn't find git directory for {path0}")
 
 
-def cmd_update(gitdir):
+def cmd_update(gitdir) -> bool:
     git = Repo(gitdir)
     merge_regex = get_merge_regex(gitdir)
     rev_parents, rev_branches = get_git_revisions(git, merge_regex)
@@ -484,7 +485,7 @@ def cmd_update(gitdir):
     rev_branch0 = get_git_revbranches(git)
     new_rev_branch, unnamed_revs, ambig_revs = fill_unknown_branches(
         rev_parent, rev_branch0, rev_branches)
-    rev_branch = rev_branch0.copy(); rev_branch.update(new_rev_branch)
+    rev_branch = {k: v for k, v in chain(rev_branch0.items(), new_rev_branch.items())}
     unnamed_roots = [rev for rev in unnamed_revs if rev_parent[rev] is None]
     unnamed_leaves = [rev for rev in unnamed_revs if rev_parent[rev] is not None]
 
@@ -532,6 +533,9 @@ def cmd_update(gitdir):
             for branch in branches:
                 print_line(f'  revbranch set {short_rev} {branch.decode("ascii")}')
             print()
+
+    is_todo = bool(unnamed_roots or unnamed_leaves or ambig_revs)
+    return is_todo
 
 
 def parse_commit_or_exit(git: Repo, revspec: str) -> bytes:
@@ -612,16 +616,19 @@ def main():
         gitdir = find_git_dir()
 
     if args.cmd == 'update' or args.cmd is None:
-        cmd_update(gitdir)
+        is_todo = cmd_update(gitdir)
+        return 1 if is_todo else 0
+
     elif args.cmd == 'get':
         cmd_get(gitdir, args.rev)
     elif args.cmd == 'set':
         cmd_set(gitdir, args.rev, args.branch)
         if not args.no_update:
-            cmd_update(gitdir)
+            is_todo = cmd_update(gitdir)
+            return 1 if is_todo else 0
     else:
         assert False
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
