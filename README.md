@@ -78,6 +78,13 @@ venv/bin/pip install -U hg+https://code.rhodecode.com/u/noamraph/thg@noam
 
 Based on [this](https://setuptools.readthedocs.io/en/latest/setuptools.html#distributing-a-setuptools-based-project).
 
+1. `venv/bin/pytest`
+2. Update setup.py with the new version number.
+3. Commit the change.
+4. Tag with the version number (`git tag 0.3`)
+5. `git push origin 0.3`
+6. Publish to pypi:
+
 ```
 pip3 install --upgrade setuptools wheel twine
 
