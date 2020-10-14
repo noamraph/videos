@@ -82,7 +82,7 @@ Based on [this](https://setuptools.readthedocs.io/en/latest/setuptools.html#dist
 2. Update setup.py with the new version number.
 3. Commit the change.
 4. Tag with the version number (`git tag 0.3`)
-5. `git push origin 0.3`
+5. `git push origin <tagname>`
 6. Publish to pypi:
 
 ```
