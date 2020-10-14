@@ -48,10 +48,21 @@ git update-ref refs/notes/revbranch refs/notes/revbranch^
 Push revbranch data to server:
 
 ```
+revbranch push
+```
+
+which does:
+```
 git push origin refs/notes/revbranch
 ```
 
 Fetch revbranch data from server:
+
+```
+revbranch fetch
+```
+
+which does:
 
 ```
 git fetch origin refs/notes/revbranch:refs/notes/revbranch

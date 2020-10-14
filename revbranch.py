@@ -570,6 +570,14 @@ def cmd_set(gitdir, revspec, branch, is_force):
                stderr=DEVNULL)
 
 
+def cmd_push(gitdir, repo):
+    check_call(['git', '-C', gitdir, 'push', repo, 'refs/notes/revbranch'])
+
+
+def cmd_fetch(gitdir, repo):
+    check_call(['git', '-C', gitdir, 'fetch', repo, 'refs/notes/revbranch:refs/notes/revbranch'])
+
+
 def get_git_config(gitdir: str):
     # I'm not sure why this function isn't already in dulwich, as it seems
     # quite generic.
@@ -617,6 +625,14 @@ def main():
     set_sp.add_argument('rev', help='Git revision')
     set_sp.add_argument('branch', help='Branch name')
 
+    push_sp = sp.add_parser('push', help='Push revbranch data')
+    push_sp.add_argument('repo', default='origin', nargs='?',
+                         help="Repository to push to. 'origin' by default")
+
+    fetch_sp = sp.add_parser('fetch', help='Fetch revbranch data')
+    fetch_sp.add_argument('repo', default='origin', nargs='?',
+                          help="Repository to fetch from. 'origin' by default")
+
     args = parser.parse_args()
 
     if args.gitdir:
@@ -630,11 +646,19 @@ def main():
 
     elif args.cmd == 'get':
         cmd_get(gitdir, args.rev)
+
     elif args.cmd == 'set':
         cmd_set(gitdir, args.rev, args.branch, args.force)
         if not args.no_update:
             is_todo = cmd_update(gitdir)
             return 1 if is_todo else 0
+
+    elif args.cmd == 'push':
+        cmd_push(gitdir, args.repo)
+
+    elif args.cmd == 'fetch':
+        cmd_fetch(gitdir, args.repo)
+
     else:
         assert False
 
