@@ -556,7 +556,14 @@ def cmd_get(gitdir, revspec):
     print(branch.decode('ascii'))
 
 
-def cmd_set(gitdir, revspec, branch):
+def cmd_set(gitdir, revspec, branch, is_force):
+    if not is_force:
+        git = Repo(gitdir)
+        rev = parse_commit_or_exit(git, revspec)
+        branch = get_git_revbranch(git, rev)
+        if branch is not None:
+            print(f"Revision {revspec} already has a revbranch ({branch.decode('ascii')}). Use -f to overwrite.")
+            raise SystemExit(1)
     # git 2.7 doesn't support --quiet, so we just consume the output
     check_call(['git', '-C', gitdir, 'notes', '--ref', NOTES_SHORT_REF,
                 'add', '-f', '-m', branch, revspec],
@@ -603,6 +610,8 @@ def main():
     get_sp.add_argument('rev', help='Git revision')
 
     set_sp = sp.add_parser('set', help='Set the branch name of a revision, and then update.')
+    set_sp.add_argument('--force', '-f', action='store_true',
+                        help='Set revbranch even if revision already has a revbranch')
     set_sp.add_argument('--no-update', action='store_true',
                         help="Don't run update after setting the revbranch")
     set_sp.add_argument('rev', help='Git revision')
@@ -622,7 +631,7 @@ def main():
     elif args.cmd == 'get':
         cmd_get(gitdir, args.rev)
     elif args.cmd == 'set':
-        cmd_set(gitdir, args.rev, args.branch)
+        cmd_set(gitdir, args.rev, args.branch, args.force)
         if not args.no_update:
             is_todo = cmd_update(gitdir)
             return 1 if is_todo else 0
