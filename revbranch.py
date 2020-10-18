@@ -560,9 +560,9 @@ def cmd_set(gitdir, revspec, branch, is_force):
     if not is_force:
         git = Repo(gitdir)
         rev = parse_commit_or_exit(git, revspec)
-        branch = get_git_revbranch(git, rev)
-        if branch is not None:
-            print(f"Revision {revspec} already has a revbranch ({branch.decode('ascii')}). Use -f to overwrite.")
+        cur_branch = get_git_revbranch(git, rev)
+        if cur_branch is not None:
+            print(f"Revision {revspec} already has a revbranch ({cur_branch.decode('ascii')}). Use -f to overwrite.")
             raise SystemExit(1)
     # git 2.7 doesn't support --quiet, so we just consume the output
     check_call(['git', '-C', gitdir, 'notes', '--ref', NOTES_SHORT_REF,

@@ -103,3 +103,10 @@ rm -rf dist build
 python3 setup.py sdist bdist_wheel
 twine upload dist/*
 ```
+
+
+## TODO
+
+fetch doesn't work if it is not fast-forward. Update the commands based on this: https://github.com/aspiers/git-config/blob/master/bin/git-rnotes
+Also, before a push, we should normalize all notes (remove spaces). I think that
+when changing notes manually there is a newline, which causes conflicts.
