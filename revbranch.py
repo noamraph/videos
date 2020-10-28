@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Dict, List, Set, Optional, Hashable, Any, TypeVar, Generator
 import time
-from subprocess import check_call, DEVNULL
+from subprocess import check_call, call, DEVNULL
 from pathlib import Path
 from shutil import get_terminal_size
 import re
@@ -40,6 +40,7 @@ SUBMODULE = 0o160000
 
 NOTES_REF = b'refs/notes/revbranch'
 NOTES_SHORT_REF = b'revbranch'
+NOTES_REF_S = 'refs/notes/revbranch'
 
 
 COMMON_MASTER_BRANCH_NAMES = {b'master', b'main', b'default', b'primary', b'root'}
@@ -236,7 +237,9 @@ def update_git_revbranches(git: Repo, rev_branch: RevBranch):
         if branch in blobs:
             blob = blobs[branch]
         else:
-            blob = Blob.from_string(branch)
+            # We add a newline to be compatible with the behavior of
+            # "git notes add -m <branch>".
+            blob = Blob.from_string(branch + b'\n')
             blobs[branch] = blob
         tree.add(rev, REG, blob.id)
     commit: Any = Commit()  # cast to Any since it suppresses false pycharm warnings
@@ -568,14 +571,39 @@ def cmd_set(gitdir, revspec, branch, is_force):
     check_call(['git', '-C', gitdir, 'notes', '--ref', NOTES_SHORT_REF,
                 'add', '-f', '-m', branch, revspec],
                stderr=DEVNULL)
+    print(f"{revspec} revbranch was set to {branch}.")
 
 
-def cmd_push(gitdir, repo):
-    check_call(['git', '-C', gitdir, 'push', repo, 'refs/notes/revbranch'])
+# The remote workflow logic is inspired by https://github.com/aspiers/git-config/blob/master/bin/git-rnotes
+
+def get_remote_notes_ref(remote: str) -> str:
+    return f'refs/notes/{remote}/revbranch'
 
 
-def cmd_fetch(gitdir, repo):
-    check_call(['git', '-C', gitdir, 'fetch', repo, 'refs/notes/revbranch:refs/notes/revbranch'])
+def cmd_fetch(gitdir: str, remote: str):
+    remote_notes = get_remote_notes_ref(remote)
+    rc = call(['git', '-C', gitdir, 'rev-parse', NOTES_REF], stdout=DEVNULL, stderr=DEVNULL)
+    if rc != 0:
+        # First-time fetch of remote notes
+        check_call(['git', '-C', gitdir, 'fetch', remote, f'{NOTES_REF_S}:{NOTES_REF_S}'])
+    # This one serves like the remote tracking branch, except that we
+    # have to handle the tracking ourselves.
+    check_call(['git', '-C', gitdir, 'fetch', remote, f'{NOTES_REF_S}:{remote_notes}'])
+
+
+def cmd_merge(gitdir: str, remote: str):
+    remote_notes = get_remote_notes_ref(remote)
+    check_call(['git', '-C', gitdir, 'notes', '--ref', NOTES_SHORT_REF, 'merge', '-v', remote_notes])
+
+
+def cmd_pull(gitdir: str, remote: str):
+    cmd_fetch(gitdir, remote)
+    cmd_merge(gitdir, remote)
+
+
+def cmd_push(gitdir: str, remote: str):
+    check_call(['git', '-C', gitdir, 'push', remote, f'{NOTES_REF_S}:{NOTES_REF_S}'])
+    cmd_fetch(gitdir, remote)
 
 
 def get_git_config(gitdir: str):
@@ -625,13 +653,21 @@ def main():
     set_sp.add_argument('rev', help='Git revision')
     set_sp.add_argument('branch', help='Branch name')
 
-    push_sp = sp.add_parser('push', help='Push revbranch data')
-    push_sp.add_argument('repo', default='origin', nargs='?',
-                         help="Repository to push to. 'origin' by default")
-
-    fetch_sp = sp.add_parser('fetch', help='Fetch revbranch data')
-    fetch_sp.add_argument('repo', default='origin', nargs='?',
+    fetch_sp = sp.add_parser('fetch', help='Fetch remote revbranch data')
+    fetch_sp.add_argument('remote', default='origin', nargs='?',
                           help="Repository to fetch from. 'origin' by default")
+
+    merge_sp = sp.add_parser('merge', help='Merge remote revbranch data')
+    merge_sp.add_argument('remote', default='origin', nargs='?',
+                          help="Repository to merge from. 'origin' by default")
+
+    pull_sp = sp.add_parser('pull', help='Pull remote revbranch data')
+    pull_sp.add_argument('remote', default='origin', nargs='?',
+                         help="Repository to pull from. 'origin' by default")
+
+    push_sp = sp.add_parser('push', help='Push revbranch data')
+    push_sp.add_argument('remote', default='origin', nargs='?',
+                         help="Repository to push to. 'origin' by default")
 
     args = parser.parse_args()
 
@@ -653,11 +689,17 @@ def main():
             is_todo = cmd_update(gitdir)
             return 1 if is_todo else 0
 
-    elif args.cmd == 'push':
-        cmd_push(gitdir, args.repo)
-
     elif args.cmd == 'fetch':
-        cmd_fetch(gitdir, args.repo)
+        cmd_fetch(gitdir, args.remote)
+
+    elif args.cmd == 'merge':
+        cmd_merge(gitdir, args.remote)
+
+    elif args.cmd == 'pull':
+        cmd_pull(gitdir, args.remote)
+
+    elif args.cmd == 'push':
+        cmd_push(gitdir, args.remote)
 
     else:
         assert False
