@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import shlex
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import NamedTuple, List, Dict
 from datetime import timedelta
 # noinspection PyUnresolvedReferences
 from importlib import reload
+import json
 
 import googleapiclient.discovery
 import googleapiclient.errors
@@ -42,7 +44,11 @@ MYDIR = Path(__file__).parent
 KEY_JSON = MYDIR / 'youtube-upload-333607-779f879a1f2a.json'
 BUILD_DIR = MYDIR / 'build'
 
-credentials = service_account.Credentials.from_service_account_file(str(KEY_JSON))
+if KEY_JSON.exists():
+    key_data = json.load(open(KEY_JSON))
+else:
+    key_data = json.loads(os.environ['KEY_JSON'])
+credentials = service_account.Credentials.from_service_account_info(key_data)
 youtube = googleapiclient.discovery.build(
     "youtube", "v3", credentials=credentials)
 
