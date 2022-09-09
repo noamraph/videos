@@ -195,8 +195,6 @@ def get_list_page(title: str, items: List[ItemData]):
         '    </style>\n'
         '  </head>\n'
         '  <body dir="rtl">\n'
-        '<iframe width="560" height="315" src="https://www.youtube.com/embed/ffVNySbmzMs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>\n'
-        '<br>\n'
         f'    <div class="container">\n'
     )
     for item in items:
