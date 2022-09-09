@@ -2,6 +2,12 @@
 
 https://noamraph.github.io/videos/
 
+## Build
+
+```
+./python allowed_videos.py
+```
+
 ## Generate requirements.txt
 
 This is for github actions.

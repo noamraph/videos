@@ -31,6 +31,12 @@ PL51YAgTlfPj7XTzORdSrWpgCfF1x7ZUeK
 # גלילאו עונה 8 - פרקים מלאים
 PL51YAgTlfPj57_dWdUXGLkf2pmCnYzYoF
 
+# גלילאו עונה 9 - פרקים מלאים 
+PL51YAgTlfPj57_dWdUXGLkf2pmCnYzYoF
+
+# גלילאו עונה 10
+PL51YAgTlfPj6vc696b-Pf-JOouxa7mCnv
+
 # Griffpatch all uploads
 UUawsI_mlmPA7Cfld-qZhBQA
 
