@@ -28,14 +28,23 @@ PLcv3NFnLaZVasCHfk6TUJ57_RM_BnlPHB
 # פרפר נחמד העונות הראשונות
 PL51YAgTlfPj7XTzORdSrWpgCfF1x7ZUeK
 
+# אבודים בריבוע - פרקים מלאים
+PL51YAgTlfPj4hZL5MM9K_Xk-ismQhYi-q
+
+# אבודים בריבוע עונה 2 - פרקים מלאים
+PL51YAgTlfPj7S1CFW1WdTS67RzyFrkyQn
+
 # גלילאו עונה 8 - פרקים מלאים
-PL51YAgTlfPj57_dWdUXGLkf2pmCnYzYoF
+PL51YAgTlfPj651bbZLZhS3JU_p-bIpGQc
 
 # גלילאו עונה 9 - פרקים מלאים 
 PL51YAgTlfPj57_dWdUXGLkf2pmCnYzYoF
 
 # גלילאו עונה 10
 PL51YAgTlfPj6vc696b-Pf-JOouxa7mCnv
+
+# המתחם ה-25
+PL51YAgTlfPj6MPmIl-qi1UeeIQLKx_Kpx
 
 # Griffpatch all uploads
 UUawsI_mlmPA7Cfld-qZhBQA
