@@ -41,7 +41,7 @@ UUPlwvN0w4qFSP1FllALB92w
 MYDIR = Path(__file__).parent
 # See https://stackoverflow.com/a/72815975/343036 for nice instructions on how to
 # obtain this
-KEY_JSON = MYDIR / 'youtube-upload-333607-779f879a1f2a.json'
+KEY_JSON = MYDIR / 'youtube-upload-333607-4e5508142ced.json'
 BUILD_DIR = MYDIR / 'build'
 
 if KEY_JSON.exists():

@@ -4,6 +4,7 @@ permissions:
   contents: write
 jobs:
   build-and-deploy:
+    environment: github-pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
