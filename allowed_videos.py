@@ -46,6 +46,9 @@ PL51YAgTlfPj6vc696b-Pf-JOouxa7mCnv
 # המתחם ה-25
 PL51YAgTlfPj6MPmIl-qi1UeeIQLKx_Kpx
 
+# שלי הכובשת
+PL51YAgTlfPj724k2A8ssLug_Wux-3a_Q0
+
 # Griffpatch all uploads
 UUawsI_mlmPA7Cfld-qZhBQA
 
