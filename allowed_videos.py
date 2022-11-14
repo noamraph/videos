@@ -110,9 +110,19 @@ def download_playlist_items(playlist_id):
         else:
             page_token = r['nextPageToken']
     durations = download_durations([item['contentDetails']['videoId'] for item in items])
+    items1 = []
     for item in items:
-        item['duration'] = durations[item['contentDetails']['videoId']]
-    return items
+        if len(item['snippet']['thumbnails']) == 0:
+            # I've seen this for private videos
+            continue
+        video_id = item['contentDetails']['videoId']
+        if video_id not in durations:
+            # Private videos seem to appear in the playlistItems query, but you
+            # don't get a duration with download_durations(). So just ignore them.
+            continue
+        item['duration'] = durations[video_id]
+        items1.append(item)
+    return items1
 
 
 def download_durations(video_ids: List[str]) -> Dict[str, timedelta]:
