@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
     name="revbranch",
-    version="0.4.1",
+    version="0.5",
     py_modules=["revbranch"],
     entry_points={
         "console_scripts": [
