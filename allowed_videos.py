@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import os
 import sys
 import shlex
 from pathlib import Path
 from shutil import rmtree
-from typing import NamedTuple, List, Dict
+from typing import NamedTuple, List, Dict, Any, Tuple
 from datetime import timedelta
 # noinspection PyUnresolvedReferences
 from importlib import reload
@@ -54,6 +56,9 @@ UUawsI_mlmPA7Cfld-qZhBQA
 
 # Numberblocks all uploads
 UUPlwvN0w4qFSP1FllALB92w
+
+# Colourblocks all uploads
+UUQkuKPaVlYK7QCIVTb0lV2Q
 """, comments=True)
 
 MYDIR = Path(__file__).parent
@@ -71,12 +76,15 @@ youtube = googleapiclient.discovery.build(
     "youtube", "v3", credentials=credentials)
 
 
-def execute(query):
+StrDict = Dict[str, Any]
+
+
+def execute(query: Any) -> StrDict:
     print(query.uri, file=sys.stderr)
     return query.execute()
 
 
-def download_playlists_metadata():
+def download_playlists_metadata() -> List[StrDict]:
     items = []
     page_token = None
     while True:
@@ -94,7 +102,7 @@ def download_playlists_metadata():
     return items
 
 
-def download_playlist_items(playlist_id):
+def download_playlist_items(playlist_id) -> List[StrDict]:
     items = []
     page_token = None
     while True:
@@ -136,7 +144,7 @@ def download_durations(video_ids: List[str]) -> Dict[str, timedelta]:
     return durations
 
 
-def format_duration(td: timedelta):
+def format_duration(td: timedelta) -> str:
     ts = int(td.total_seconds())
     tm, s = divmod(ts, 60)
     h, m = divmod(tm, 60)
@@ -146,7 +154,7 @@ def format_duration(td: timedelta):
         return f'{m}:{s:02}'
 
 
-def get_main_page(items):
+def get_main_page(items: List[StrDict]):
     title = 'רשימות השמעה'
     item_datas: List[ItemData] = []
     for item in items:
@@ -162,7 +170,7 @@ def get_main_page(items):
     return get_list_page(title, item_datas)
 
 
-def get_playlist_page(metadata, items):
+def get_playlist_page(metadata: StrDict, items: List[StrDict]):
     title = metadata['snippet']['title']
     item_datas: List[ItemData] = []
     for item in items:
@@ -187,7 +195,7 @@ class ItemData(NamedTuple):
     text: str
 
 
-def get_list_page(title: str, items: List[ItemData]):
+def get_list_page(title: str, items: List[ItemData]) -> str:
     s = (
         '<!DOCTYPE html>\n'
         '<html lang="en">\n'
@@ -227,7 +235,7 @@ def get_list_page(title: str, items: List[ItemData]):
     return s
 
 
-def download():
+def download() -> Tuple[List[StrDict], List[List[StrDict]]]:
     playlists = download_playlists_metadata()
     playlist_items = []
     for playlist_id in PLAYLISTS:
@@ -235,7 +243,7 @@ def download():
     return playlists, playlist_items
 
 
-def write_html(playlists, playlist_items):
+def write_html(playlists: List[StrDict], playlist_items: List[List[StrDict]]) -> None:
     if BUILD_DIR.exists():
         rmtree(BUILD_DIR)
     BUILD_DIR.mkdir()
@@ -250,14 +258,14 @@ def write_html(playlists, playlist_items):
             f.write(playlist_page)
 
 
-def reimp():
+def reimp() -> None:
     from inspect import currentframe
 
     cmd = "from importlib import reload; import allowed_videos; reload(allowed_videos); from allowed_videos import *"
     exec(cmd, currentframe().f_back.f_globals, currentframe().f_back.f_locals)
 
 
-def main():
+def main() -> None:
     playlists, playlist_items = download()
     write_html(playlists, playlist_items)
 
