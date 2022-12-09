@@ -59,6 +59,9 @@ UUPlwvN0w4qFSP1FllALB92w
 
 # Colourblocks all uploads
 UUQkuKPaVlYK7QCIVTb0lV2Q
+
+# Alphablocks all uploads
+UU_qs3c0ehDvZkbiEbOj6Drg
 """, comments=True)
 
 MYDIR = Path(__file__).parent
