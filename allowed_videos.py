@@ -62,6 +62,9 @@ UUQkuKPaVlYK7QCIVTb0lV2Q
 
 # Alphablocks all uploads
 UU_qs3c0ehDvZkbiEbOj6Drg
+
+# @tdbricks all uploads
+UUUU3GdGuQshZFRGnxAPBf_w
 """, comments=True)
 
 MYDIR = Path(__file__).parent
