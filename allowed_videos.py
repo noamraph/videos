@@ -65,6 +65,11 @@ UU_qs3c0ehDvZkbiEbOj6Drg
 
 # @tdbricks all uploads
 UUUU3GdGuQshZFRGnxAPBf_w
+
+# Kurzgezagt
+UUsXVk37bltHxD1rDPwtNM8Q
+
+# 
 """, comments=True)
 
 MYDIR = Path(__file__).parent
