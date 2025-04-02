@@ -28,7 +28,7 @@ PLAYLISTS = shlex.split("""
 PLcv3NFnLaZVasCHfk6TUJ57_RM_BnlPHB
 
 # פרפר נחמד העונות הראשונות
-PL51YAgTlfPj7XTzORdSrWpgCfF1x7ZUeK
+# PL51YAgTlfPj7XTzORdSrWpgCfF1x7ZUeK
 
 # אבודים בריבוע - פרקים מלאים
 PL51YAgTlfPj4hZL5MM9K_Xk-ismQhYi-q
@@ -55,13 +55,13 @@ PL51YAgTlfPj724k2A8ssLug_Wux-3a_Q0
 UUawsI_mlmPA7Cfld-qZhBQA
 
 # Numberblocks all uploads
-UUPlwvN0w4qFSP1FllALB92w
+# UUPlwvN0w4qFSP1FllALB92w
 
 # Colourblocks all uploads
-UUQkuKPaVlYK7QCIVTb0lV2Q
+# UUQkuKPaVlYK7QCIVTb0lV2Q
 
 # Alphablocks all uploads
-UU_qs3c0ehDvZkbiEbOj6Drg
+# UU_qs3c0ehDvZkbiEbOj6Drg
 
 # @tdbricks all uploads
 UUUU3GdGuQshZFRGnxAPBf_w
@@ -71,12 +71,30 @@ UUsXVk37bltHxD1rDPwtNM8Q
 
 # Brick Science
 UUpQB577lHFyWTyvrS73Ldlg
+
+# Veritasium
+UUHnyfMqiRRG1u-2MsSQLbXA
+
+# 3blue1brown
+UUYO_jab_esuFRV4b17AJtAw
+
+# Mark Rober
+UUY1kMZp36IQSyNx_9h4mpCg
+
+# Nadav Nave
+UUiGXQyV2DMEFyt1agByOQEA
+
+# Everyday Astronaut
+UU6uKrU_WqJ1R2HMTY3LIx5Q
+
+# Stuff Made Here
+UUj1VqrHhDte54oLgPG4xpuQ
 """, comments=True)
 
 MYDIR = Path(__file__).parent
 # See https://stackoverflow.com/a/72815975/343036 for nice instructions on how to
 # obtain this
-KEY_JSON = MYDIR / 'youtube-upload-333607-4e5508142ced.json'
+KEY_JSON = MYDIR / 'youtube-upload-333607-bab972dd5a7f.json'
 BUILD_DIR = MYDIR / 'build'
 
 if KEY_JSON.exists():
