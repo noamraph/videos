@@ -170,7 +170,9 @@ def download_durations(video_ids: List[str]) -> Dict[str, timedelta]:
     for chunk in chunks:
         r = execute(youtube.videos().list(part='contentDetails', id=','.join(chunk)))
         for video_id, item in zip(chunk, r['items']):
-            durations[video_id] = parse_duration(item['contentDetails']['duration'])
+            # Sometimes duration is not available, I don't know why.
+            duration0 = item['contentDetails'].get('duration')
+            durations[video_id] = parse_duration(duration0) if duration0 else None
     return durations
 
 
