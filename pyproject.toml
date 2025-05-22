@@ -8,3 +8,9 @@ dependencies = [
     "google-api-python-client>=2.166.0",
     "isodate>=0.7.2",
 ]
+
+[dependency-groups]
+dev = [
+    "google-api-python-client-stubs>=1.29.0",
+    "mypy>=1.15.0",
+]

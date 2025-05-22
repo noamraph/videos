@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import shlex
+import time
 from pathlib import Path
 from shutil import rmtree
 from typing import NamedTuple, List, Dict, Any, Tuple
@@ -14,7 +15,7 @@ from importlib import reload
 import json
 
 import googleapiclient.discovery
-import googleapiclient.errors
+from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
 from isodate import parse_duration
 
@@ -116,8 +117,20 @@ StrDict = Dict[str, Any]
 
 
 def execute(query: Any) -> StrDict:
-    print(query.uri, file=sys.stderr)
-    return query.execute()
+    next_sleep_sec = 10
+    while True:
+        try:
+            print(query.uri, file=sys.stderr)
+            return query.execute()
+        except HttpError as e:
+            if e.status_code == 503:
+                # Service unavailable
+                print(f"Error: {e}. Sleeping {next_sleep_sec} seconds...")
+                time.sleep(next_sleep_sec)
+                next_sleep_sec *= 2
+            else:
+                raise
+
 
 
 def download_playlists_metadata() -> List[StrDict]:
