@@ -228,12 +228,14 @@ def get_playlist_page(metadata: StrDict, items: List[StrDict]):
         snippet = item['snippet']
         thumbnail = snippet['thumbnails']['medium']
         video_id = snippet["resourceId"]["videoId"]
+        duration = item['duration']
+        duration_s = f' ({format_duration(duration)})' if duration is not None else ''
         item_datas.append(ItemData(
             f'https://www.youtube.com/embed/{video_id}',
             thumbnail['url'],
             thumbnail['width'],
             thumbnail['height'],
-            f'{snippet["title"]} ({format_duration(item["duration"])})',
+            f'{snippet["title"]}{duration_s}',
         ))
     return get_list_page(title, item_datas)
 
