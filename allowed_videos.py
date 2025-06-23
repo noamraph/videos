@@ -96,6 +96,9 @@ UU2C_jShtL725hvbm1arSV9w
 
 # Nick DiGiovanni
 UUMyOj6fhvKFMjxUCp3b_3gA
+
+# Gotham Chess
+UUQHX6ViZmPsWiYSFAyS0a3Q
 """, comments=True)
 
 MYDIR = Path(__file__).parent
