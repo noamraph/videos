@@ -94,11 +94,14 @@ UUj1VqrHhDte54oLgPG4xpuQ
 # CGP Grey
 UU2C_jShtL725hvbm1arSV9w
 
-# Nick DiGiovanni
-UUMyOj6fhvKFMjxUCp3b_3gA
-
-# Gotham Chess
+# GothamChess
 UUQHX6ViZmPsWiYSFAyS0a3Q
+                        
+# SolarBalls
+UUQF0f62JXnfFSxKDmN8SDUg
+                        
+# HumanBuddy
+UUhvHNAxUaBpEmxRB9-SeV2g
 """, comments=True)
 
 MYDIR = Path(__file__).parent
