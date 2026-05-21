@@ -107,7 +107,7 @@ UUhvHNAxUaBpEmxRB9-SeV2g
 MYDIR = Path(__file__).parent
 # See https://stackoverflow.com/a/72815975/343036 for nice instructions on how to
 # obtain this
-KEY_JSON = MYDIR / 'youtube-upload-333607-bab972dd5a7f.json'
+KEY_JSON = MYDIR / 'youtube-upload-333607-c87f504d1fcd.json'
 BUILD_DIR = MYDIR / 'build'
 
 if KEY_JSON.exists():
@@ -235,6 +235,9 @@ def get_playlist_page(metadata: StrDict, items: List[StrDict]):
         thumbnail = snippet['thumbnails']['medium']
         video_id = snippet["resourceId"]["videoId"]
         duration = item['duration']
+        if duration.total_seconds() <= 121:
+            # Remove shorts
+            continue
         duration_s = f' ({format_duration(duration)})' if duration is not None else ''
         item_datas.append(ItemData(
             f'https://www.youtube.com/embed/{video_id}',
