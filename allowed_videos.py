@@ -235,7 +235,7 @@ def get_playlist_page(metadata: StrDict, items: List[StrDict]):
         thumbnail = snippet['thumbnails']['medium']
         video_id = snippet["resourceId"]["videoId"]
         duration = item['duration']
-        if duration.total_seconds() <= 121:
+        if duration.total_seconds() <= 181:
             # Remove shorts
             continue
         duration_s = f' ({format_duration(duration)})' if duration is not None else ''
